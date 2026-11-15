@@ -1775,3 +1775,104 @@ func TestPrepareValidateConfig_NoCommands(t *testing.T) {
 		assert.Assert(t, errors.As(err, &ue), "got %v", err)
 	})
 }
+
+// pipeWith returns the read end of a pipe holding payload with the writer
+// closed, so the *os.File path is exercised.
+func pipeWith(t *testing.T, payload string) *os.File {
+	t.Helper()
+	r, w, err := os.Pipe()
+	assert.NilError(t, err)
+	_, err = w.WriteString(payload)
+	assert.NilError(t, err)
+	assert.NilError(t, w.Close())
+	t.Cleanup(func() { _ = r.Close() })
+	return r
+}
+
+func TestDetectHookReadsPayloadFromRealPipe(t *testing.T) {
+	h := detectHook(pipeWith(t, hookPayload))
+	assert.Assert(t, h != nil)
+	assert.Equal(t, h.sessionID, "test-session-001")
+
+	h = detectHook(pipeWith(t, `{"session_id":"s","turn_id":"t1","hook_event_name":"Stop"}`))
+	assert.Assert(t, h != nil)
+	assert.Assert(t, h.codex)
+	assert.Equal(t, h.event, "Stop")
+
+	h = detectHook(pipeWith(t, `{"session_id":"s","hook_event_name":"PreToolUse","tool_input":{"command":"git commit -m x"}}`))
+	assert.Assert(t, h != nil)
+	assert.Equal(t, h.event, "PreToolUse")
+	assert.Equal(t, h.toolCommand, "git commit -m x")
+
+	assert.Assert(t, detectHook(pipeWith(t, "")) == nil)
+}
+
+func TestPeekHookPayloadKeepsPayloadForRunE(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.SetIn(pipeWith(t, hookPayload))
+	assert.Assert(t, peekHookPayload(cmd) != nil)
+	h := detectHook(cmd.InOrStdin())
+	assert.Assert(t, h != nil)
+	assert.Equal(t, h.sessionID, "test-session-001")
+}
+
+func TestDetectHookIdlePipeIsNotAHook(t *testing.T) {
+	old := hookPayloadWait
+	hookPayloadWait = 20 * time.Millisecond
+	t.Cleanup(func() { hookPayloadWait = old })
+	r, w, err := os.Pipe()
+	assert.NilError(t, err)
+	t.Cleanup(func() { _ = r.Close(); _ = w.Close() })
+	assert.Assert(t, detectHook(r) == nil)
+
+	cmd := &cobra.Command{}
+	cmd.SetIn(r)
+	assert.Assert(t, peekHookPayload(cmd) == nil)
+	start := time.Now()
+	assert.Assert(t, detectHook(cmd.InOrStdin()) == nil)
+	assert.Assert(t, time.Since(start) < 15*time.Millisecond, "RunE must not wait a second time")
+}
+
+func TestDetectHookTerminalStdinIsNotRead(t *testing.T) {
+	old := fdIsTerminal
+	fdIsTerminal = func(int) bool { return true }
+	t.Cleanup(func() { fdIsTerminal = old })
+	r := pipeWith(t, hookPayload)
+	assert.Assert(t, detectHook(r) == nil)
+	rest, err := io.ReadAll(r)
+	assert.NilError(t, err)
+	assert.Equal(t, string(rest), hookPayload, "a terminal stdin must not be read")
+}
+
+func TestValidateIdleStdinPipeRunsGates(t *testing.T) {
+	isolateConfig(t)
+	t.Setenv(config.EnvCircleToken, "")
+	t.Setenv(config.EnvCircleCIToken, "")
+	old := hookPayloadWait
+	hookPayloadWait = 50 * time.Millisecond
+	t.Cleanup(func() { hookPayloadWait = old })
+
+	dir := t.TempDir()
+	assert.NilError(t, config.SaveProjectConfig(dir, &config.ProjectConfig{
+		Commands: []config.Command{{Name: "test", Run: "echo ran-locally"}},
+	}))
+	r, w, err := os.Pipe()
+	assert.NilError(t, err)
+	t.Cleanup(func() { _ = r.Close(); _ = w.Close() })
+
+	var outBuf, errBuf bytes.Buffer
+	root := newTestRootCmd()
+	root.SetOut(&outBuf)
+	root.SetErr(&errBuf)
+	root.SetIn(r)
+	root.SetArgs([]string{"validate", "--local", "--project", dir})
+	done := make(chan error, 1)
+	go func() { done <- root.Execute() }()
+	select {
+	case err := <-done:
+		assert.NilError(t, err)
+	case <-time.After(30 * time.Second):
+		t.Fatal("validate hung on an idle stdin pipe")
+	}
+	assert.Assert(t, strings.Contains(outBuf.String()+errBuf.String(), "ran-locally"))
+}
