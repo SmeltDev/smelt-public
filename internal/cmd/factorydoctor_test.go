@@ -3,9 +3,11 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/smeltdev/smelt/internal/config"
 	"github.com/smeltdev/smelt/internal/sidecar/docker"
 	"gotest.tools/v3/assert"
 )
@@ -56,4 +58,38 @@ func TestPrintStorageReportDeferredTrimAndOneHostLine(t *testing.T) {
 	assert.Assert(t, strings.Contains(out.String(), "smelt-cache-a: trim deferred (in use)"), out.String())
 	assert.Equal(t, strings.Count(out.String(), "no disk"), 1, out.String())
 	assert.Equal(t, strings.Count(out.String(), "backing storage unavailable"), 0, out.String())
+}
+
+func TestFactoryDoctorPrintsTheDefaultBranchBeforeDocker(t *testing.T) {
+	isolateConfig(t)
+	t.Setenv("DOCKER_HOST", "unix:///nonexistent/docker.sock")
+	dir := branchFixture(t)
+	assert.NilError(t, config.SaveProjectConfig(dir, &config.ProjectConfig{}))
+	t.Chdir(dir)
+	cmd := newFactoryDoctorCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetContext(t.Context())
+	_ = cmd.Execute() // Docker may be missing; the line comes first either way.
+	assert.Assert(t, strings.HasPrefix(out.String(), "default branch: trunk (from the remote)\n"), out.String())
+}
+
+func TestFactoryDoctorWarnsWhenTheDefaultBranchIsUnknown(t *testing.T) {
+	isolateConfig(t)
+	t.Setenv("DOCKER_HOST", "unix:///nonexistent/docker.sock")
+	dir := t.TempDir()
+	gitIn(t, dir, "init", "-b", "main")
+	// Doctor needs an origin; an unreachable one with no branches answers nothing.
+	gitIn(t, dir, "remote", "add", "origin", filepath.Join(dir, "nowhere"))
+	assert.NilError(t, config.SaveProjectConfig(dir, &config.ProjectConfig{}))
+	t.Chdir(dir)
+	cmd := newFactoryDoctorCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetContext(t.Context())
+	_ = cmd.Execute() // Docker may be missing; the warning comes first either way.
+	assert.Assert(t, strings.HasPrefix(out.String(), "warning: "), out.String())
+	assert.Assert(t, strings.Contains(strings.SplitN(out.String(), "\n", 2)[0], "default_branch"), out.String())
 }

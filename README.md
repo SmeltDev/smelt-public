@@ -338,6 +338,7 @@ is committed and shared with your team:
 | `quality` | The built-in quality check: `{"enabled": true, "maxFunctionComplexity": 15, "maxErosionRise": 1.0, "minCloneLines": 15, "command": "", "exclude": [], "include": [], "defaultExcludes": true}`. Every round measures erosion, complex functions and duplicated code, in any language, before and after the change; `enabled: false` turns it off. `command` replaces lizard (see below). |
 | `log` | Keep a run log by default |
 | `author` | `"Name <email>"` for factory commits. Leave it unset so everyone commits as their own git identity. |
+| `vcs.default_branch` | The branch PRs merge into, e.g. `"develop"`. Needed only when no code host, `origin/HEAD` or remote answers; otherwise smelt finds it, and `smelt init` and `smelt factory doctor` print it with where it came from. |
 
 A flag always beats the config, and the config beats the built-in default.
 
