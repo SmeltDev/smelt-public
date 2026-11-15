@@ -866,7 +866,9 @@ then `upstream/HEAD`; `git ls-remote --symref` on origin, then upstream (10s
 timeout, cached 24h under the project's data folder); and the only one of
 `origin/main` and `origin/master` that exists. Otherwise it returns
 `ErrNoDefaultBranch`, which names the config key. It never guesses `main` and
-never writes to `.git`.
+never writes to `.git`. `smelt repo default-branch [--json]` is its command-line
+entry point; the shipped skills call it and keep a shell loop only for when
+`smelt` is not on PATH.
 
 ## Change Measurement (`internal/changeset/`, `internal/gitutil/`, `internal/filestate/`)
 

@@ -1,0 +1,1 @@
+{"error":"the repository's default branch is unknown; set \"vcs\": {\"default_branch\": \"<name>\"} in .smelt/config.json"}

@@ -46,14 +46,18 @@ AskUserQuestion:
     - "Files changed in this branch"
       description: "Only mutate code touched in the current branch — good for
                     pre-merge coverage checks."
-      → resolve the base branch first (origin/HEAD when set, else main, else master):
+      → resolve the base branch first with `smelt repo default-branch` (the loop below is only the fallback when `smelt` is not on PATH):
 
         ```sh base-branch
-        base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
-        if [ -z "$base" ]; then
-          for b in main master; do
-            if git rev-parse --verify --quiet "refs/heads/$b" >/dev/null || git rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null; then base=$b; break; fi
-          done
+        if command -v smelt >/dev/null 2>&1; then
+          base=$(smelt repo default-branch 2>/dev/null)
+        else
+          base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+          if [ -z "$base" ]; then
+            for b in main master; do
+              if git rev-parse --verify --quiet "refs/heads/$b" >/dev/null || git rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null; then base=$b; break; fi
+            done
+          fi
         fi
         echo "$base"
         ```

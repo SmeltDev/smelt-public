@@ -258,6 +258,11 @@ smelt
 │   └── stop                        # Stop the daemon unless a factory run is active (or that can't be told)
 │       --force                     # Stop it anyway, cancelling active runs
 │
+├── repo
+│   └── default-branch              # Print the default branch (config, host, origin/HEAD, remote or only branch; never guessed)
+│       --project <path>            # Override project directory
+│       --json                      # {"branch","remote","source"}; an unknown branch is {"error"} on stderr, exit 1
+│
 ├── conflicts                       # Report whether this branch still merges cleanly into its merge target
 │   --project <path>                # Override project directory
 │   --hook                          # Emit Claude Code hook JSON so the notice reaches the agent

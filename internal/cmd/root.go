@@ -113,6 +113,7 @@ Configuration:
 	rootCmd.AddCommand(newHarnessCmd())
 	rootCmd.AddCommand(newHookCmd())
 	rootCmd.AddCommand(newConflictsCmd())
+	rootCmd.AddCommand(newRepoCmd())
 	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(newReceiveTelemetryCmd())
 	rootCmd.AddCommand(newWatchCmd())
