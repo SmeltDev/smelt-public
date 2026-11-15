@@ -128,7 +128,7 @@ func TestPreviewMergeErrorsOnUnknownRevision(t *testing.T) {
 	assert.Check(t, cmp.ErrorContains(err, "not something we can merge"))
 }
 
-func TestDefaultRemoteBranchInReadsRemoteHead(t *testing.T) {
+func TestOriginHeadReadsRemoteHead(t *testing.T) {
 	t.Parallel()
 
 	dir := setupRepo(t)
@@ -136,13 +136,13 @@ func TestDefaultRemoteBranchInReadsRemoteHead(t *testing.T) {
 	gitRun(t, dir, "remote", "add", "origin", "https://example.com/x/y.git")
 	gitRun(t, dir, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
 
-	remote, branch, err := DefaultRemoteBranchIn(dir)
+	remote, branch, err := originHead(dir)
 	assert.NilError(t, err)
 	assert.Check(t, cmp.Equal(remote, "origin"))
 	assert.Check(t, cmp.Equal(branch, "main"))
 }
 
-func TestDefaultRemoteBranchInPrefersOriginOverUpstream(t *testing.T) {
+func TestOriginHeadPrefersOriginOverUpstream(t *testing.T) {
 	t.Parallel()
 
 	// A fork checkout has both. origin wins, because that is the remote whose
@@ -154,13 +154,13 @@ func TestDefaultRemoteBranchInPrefersOriginOverUpstream(t *testing.T) {
 	gitRun(t, dir, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
 	gitRun(t, dir, "symbolic-ref", "refs/remotes/upstream/HEAD", "refs/remotes/upstream/trunk")
 
-	remote, branch, err := DefaultRemoteBranchIn(dir)
+	remote, branch, err := originHead(dir)
 	assert.NilError(t, err)
 	assert.Check(t, cmp.Equal(remote, "origin"))
 	assert.Check(t, cmp.Equal(branch, "main"))
 }
 
-func TestDefaultRemoteBranchInFallsBackToUpstream(t *testing.T) {
+func TestOriginHeadFallsBackToUpstream(t *testing.T) {
 	t.Parallel()
 
 	dir := setupRepo(t)
@@ -168,17 +168,17 @@ func TestDefaultRemoteBranchInFallsBackToUpstream(t *testing.T) {
 	gitRun(t, dir, "remote", "add", "upstream", "https://example.com/them/y.git")
 	gitRun(t, dir, "symbolic-ref", "refs/remotes/upstream/HEAD", "refs/remotes/upstream/trunk")
 
-	remote, branch, err := DefaultRemoteBranchIn(dir)
+	remote, branch, err := originHead(dir)
 	assert.NilError(t, err)
 	assert.Check(t, cmp.Equal(remote, "upstream"))
 	assert.Check(t, cmp.Equal(branch, "trunk"))
 }
 
-func TestDefaultRemoteBranchInErrorsWithoutRemoteHead(t *testing.T) {
+func TestOriginHeadErrorsWithoutRemoteHead(t *testing.T) {
 	t.Parallel()
 
 	dir := setupRepo(t)
-	_, _, err := DefaultRemoteBranchIn(dir)
+	_, _, err := originHead(dir)
 	assert.Check(t, err != nil)
 }
 

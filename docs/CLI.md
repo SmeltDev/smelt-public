@@ -258,6 +258,11 @@ smelt
 │   └── stop                        # Stop the daemon unless a factory run is active (or that can't be told)
 │       --force                     # Stop it anyway, cancelling active runs
 │
+├── repo
+│   └── default-branch              # Print the default branch (config, host, origin/HEAD, remote or only branch; never guessed)
+│       --project <path>            # Override project directory
+│       --json                      # {"branch","remote","source"}; an unknown branch is {"error"} on stderr, exit 1
+│
 ├── conflicts                       # Report whether this branch still merges cleanly into its merge target
 │   --project <path>                # Override project directory
 │   --hook                          # Emit Claude Code hook JSON so the notice reaches the agent
@@ -421,10 +426,10 @@ smelt
   target.
 - **What `conflicts` compares.** The daemon previews merging each project's
   branch into the default branch on `origin`, falling back to `upstream`
-  (`DefaultRemoteBranchIn`), re-checking every 60s and refreshing the target's
+  (`gitutil.DefaultBranch`: see `vcs.default_branch` in ARCHITECTURE.md), re-checking every 60s and refreshing the target's
   remote-tracking ref every 3 minutes. The comparison covers **committed
   history only** — uncommitted work in the tree is invisible to it. A detached
-  HEAD, a repo with no recorded default branch, and a branch that is itself the
+  HEAD, a repo whose default branch cannot be determined, and a branch that is itself the
   merge target all produce "no answer" rather than a clean bill of health.
 - **`watch` can show a remote daemon.** With `SMELT_DAEMON_REMOTE_ADDR` and
   `SMELT_DAEMON_TCP_TOKEN` set, `watch` reads the daemon at that TCP address instead
@@ -1347,6 +1352,7 @@ A prompts directory named `patterns` must be passed to `smelt review` as `./patt
 | `model` | user config (`~/.config/smelt/config.json`) | Claude model override |
 | `telemetry` | user config (`~/.config/smelt/config.json`) | Usage telemetry preference (`true`/`false`, default: `true`); only matters to a build that has a telemetry write key, which default builds do not |
 | `notifications` | user config (`~/.config/smelt/config.json`) | OS desktop notification after validate completes (`true`/`false`, default: `false`) |
+| `vcs.default_branch` | `.smelt/config.json` | The branch PRs merge into. Needed only when no code host, `origin/HEAD` or remote answers; otherwise smelt finds it. `smelt init` and `smelt factory doctor` print the branch and where it came from, or how to set it (see ARCHITECTURE.md, default-branch resolution) |
 | `orgID` | `.smelt/config.json` | CircleCI organization ID for sidecar subcommands |
 | `validation.sidecarImage` | `.smelt/config.json` | Snapshot or image ID for sidecar bootstrap and validate (unset: a matching org snapshot is selected automatically) |
 | `asyncValidate` | `.smelt/config.json` | Whether hook runs may be validated in the background: `auto` (default), `always`, `never` |

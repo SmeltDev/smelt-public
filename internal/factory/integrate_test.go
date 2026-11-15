@@ -3,6 +3,7 @@ package factory
 import (
 	"context"
 	"errors"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -234,4 +235,48 @@ func TestNotesListLowFindings(t *testing.T) {
 	assert.Assert(t, contains(body, "Low findings"), body)
 	assert.Assert(t, contains(body, "- a.go:3: odd (downgraded: new in round 3 on unchanged code)"), body)
 	assert.Assert(t, !contains(Notes{Title: "t", What: "w"}.PRBody("run-1", Outcome{}, ""), "Low findings"))
+}
+
+func gitIn(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = gitrepo.GitEnv(dir)
+	out, err := cmd.CombinedOutput()
+	assert.NilError(t, err, "git %v: %s", args, out)
+}
+
+func TestResolveAgainstExplicitIsUnchanged(t *testing.T) {
+	got, err := ResolveAgainst(t.TempDir(), "release/1.x")
+	assert.NilError(t, err)
+	assert.Equal(t, got, "release/1.x")
+}
+
+func TestResolveAgainstAsksTheRemote(t *testing.T) {
+	remote := t.TempDir()
+	gitIn(t, remote, "init", "--bare", "--initial-branch=master")
+	seed := t.TempDir()
+	gitIn(t, seed, "init", "--initial-branch=master")
+	gitIn(t, seed, "commit", "--allow-empty", "-m", "init")
+	gitIn(t, seed, "push", remote, "master")
+
+	root := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	gitIn(t, root, "init", "--initial-branch=work")
+	gitIn(t, root, "remote", "add", "origin", remote)
+
+	got, err := ResolveAgainst(root, "")
+	assert.NilError(t, err)
+	assert.Equal(t, got, "master")
+}
+
+func TestResolveAgainstUnknownNamesTheFixes(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	gitIn(t, root, "init")
+
+	_, err := ResolveAgainst(root, "")
+	assert.Assert(t, errors.Is(err, ErrNoDefaultBranch), "%v", err)
+	assert.Assert(t, strings.Contains(err.Error(), "--against"), "%v", err)
+	assert.Assert(t, strings.Contains(err.Error(), "default_branch"), "%v", err)
 }

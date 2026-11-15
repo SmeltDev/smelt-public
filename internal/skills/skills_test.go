@@ -409,12 +409,55 @@ func TestSkillsResolveTheBaseBranch(t *testing.T) {
 				gitIn(t, dir, "init", "-q")
 				gitIn(t, dir, "-c", "user.email=t@example.com", "-c", "user.name=T", "commit", "-q", "--allow-empty", "-m", "init")
 				tt.setup(t, dir)
-				cmd := exec.Command("sh", "-c", snippet)
-				cmd.Dir = dir
-				out, err := cmd.Output()
-				assert.NilError(t, err)
-				assert.Equal(t, strings.TrimSpace(string(out)), tt.want)
+				out := runSnippet(t, snippet, dir, pathWithout(t))
+				assert.Equal(t, out, tt.want)
 			})
 		}
+	}
+}
+
+// pathWithout is a PATH holding git and nothing named smelt, so the snippet
+// takes its fallback branch whatever the developer has installed.
+func pathWithout(t *testing.T) string {
+	t.Helper()
+	gitPath, err := exec.LookPath("git")
+	assert.NilError(t, err)
+	bin := t.TempDir()
+	assert.NilError(t, os.Symlink(gitPath, filepath.Join(bin, "git")))
+	return bin
+}
+
+func runSnippet(t *testing.T, snippet, dir, path string) string {
+	t.Helper()
+	cmd := exec.Command("sh", "-c", snippet)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "PATH="+path)
+	out, err := cmd.Output()
+	assert.NilError(t, err)
+	return strings.TrimSpace(string(out))
+}
+
+func TestSkillsCallSmeltRepoDefaultBranch(t *testing.T) {
+	for _, skill := range []string{"smelt-review", "smelt-testing-gaps"} {
+		snippet := baseBranchSnippet(t, skill)
+		call := strings.Index(snippet, "base=$(smelt repo default-branch")
+		els := strings.Index(snippet, "else")
+		loop := strings.Index(snippet, "for b in main master")
+		assert.Assert(t, call >= 0, "%s does not call smelt repo default-branch", skill)
+		assert.Assert(t, call < els && els < loop, "%s: the loop must sit in the else branch", skill)
+	}
+}
+
+func TestSkillsUseSmeltWhenOnPath(t *testing.T) {
+	bin := t.TempDir()
+	fake := "#!/bin/sh\necho \"$*\" > \"" + filepath.Join(bin, "args") + "\"\necho trunk\n"
+	assert.NilError(t, os.WriteFile(filepath.Join(bin, "smelt"), []byte(fake), 0o755))
+	for _, skill := range []string{"smelt-review", "smelt-testing-gaps"} {
+		dir := t.TempDir()
+		out := runSnippet(t, baseBranchSnippet(t, skill), dir, bin+string(os.PathListSeparator)+pathWithout(t))
+		assert.Equal(t, out, "trunk")
+		args, err := os.ReadFile(filepath.Join(bin, "args"))
+		assert.NilError(t, err)
+		assert.Equal(t, strings.TrimSpace(string(args)), "repo default-branch")
 	}
 }

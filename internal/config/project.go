@@ -214,6 +214,8 @@ func (c Command) RunsRemotely() bool { return !c.Local }
 type VCSConfig struct {
 	Org  string `json:"org,omitempty"`
 	Repo string `json:"repo,omitempty"`
+	// DefaultBranch names the branch PRs merge into, overriding detection.
+	DefaultBranch string `json:"default_branch,omitempty"`
 }
 
 // ValidationConfig holds project-level defaults for validation behaviour.

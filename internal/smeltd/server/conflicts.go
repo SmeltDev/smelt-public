@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/smeltdev/smelt/internal/config"
 	"github.com/smeltdev/smelt/internal/gitutil"
 	"github.com/smeltdev/smelt/internal/smeltd"
 )
@@ -124,6 +125,20 @@ func (d *daemon) checkProjectConflict(ctx context.Context, ps *projectState) {
 	d.mu.Unlock()
 }
 
+// mergeTarget is the remote and branch the checkout merges into; why says what
+// is missing when either is unknown.
+func mergeTarget(ctx context.Context, root string) (remote, branch, why string) {
+	dataDir, _ := config.ProjectDataDir(root)
+	def, err := gitutil.DefaultBranch(ctx, root, gitutil.Opts{DataDir: dataDir})
+	if err != nil {
+		return "", "", err.Error()
+	}
+	if def.Remote == "" {
+		return "", "", fmt.Sprintf("the default branch %s has no remote to compare with", def.Name)
+	}
+	return def.Remote, def.Name, ""
+}
+
 // evaluateConflict produces the conflict state for one repository.
 //
 // Split out from checkProjectConflict so the decision logic is testable without
@@ -136,14 +151,10 @@ func evaluateConflict(ctx context.Context, root string, prior *smeltd.ConflictSt
 		return &smeltd.ConflictState{Unavailable: "HEAD is detached, so there is no branch to compare"}, lastFetch
 	}
 
-	remote, targetBranch, err := gitutil.DefaultRemoteBranchIn(root)
-	if err != nil {
-		// A repo with no remote HEAD recorded has no merge target to speak of.
-		// Common in a fresh `git init`, and not a malfunction.
-		return &smeltd.ConflictState{
-			Branch:      branch,
-			Unavailable: "no default branch is recorded for this repository",
-		}, lastFetch
+	remote, targetBranch, why := mergeTarget(ctx, root)
+	if why != "" {
+		// Not a malfunction: a fresh `git init` has no merge target to speak of.
+		return &smeltd.ConflictState{Branch: branch, Unavailable: why}, lastFetch
 	}
 	target := remote + "/" + targetBranch
 

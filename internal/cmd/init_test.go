@@ -965,3 +965,51 @@ func TestInitChecksTheLoginBeforeTheImage(t *testing.T) {
 	assert.Assert(t, login < image, "the login must be checked before the image step:\n%s", out)
 	assert.Equal(t, strings.Count(out, "Claude credential"), 1, out)
 }
+
+func TestInitPrintsTheDefaultBranch(t *testing.T) {
+	isolateConfig(t)
+	t.Setenv("CI", "1")
+	dir := branchFixture(t)
+	stderr, err := runInitCmd(t, dir)
+	assert.NilError(t, err, stderr)
+	assert.Assert(t, strings.Contains(stderr, "default branch: trunk (from the remote)"), stderr)
+	cfg, err := config.LoadProjectConfig(dir)
+	assert.NilError(t, err)
+	if cfg.VCS != nil {
+		assert.Equal(t, cfg.VCS.DefaultBranch, "")
+	}
+}
+
+func TestInitWarnsWhenTheDefaultBranchIsUnknownAndCarriesOn(t *testing.T) {
+	isolateConfig(t)
+	t.Setenv("CI", "1")
+	dir := initGitRepo(t)
+	stderr, err := runInitCmd(t, dir)
+	assert.NilError(t, err, stderr)
+	assert.Assert(t, strings.Contains(stderr, `set "vcs": {"default_branch": "<name>"} in .smelt/config.json`), stderr)
+	_, err = os.Stat(filepath.Join(dir, ".smelt", "config.json"))
+	assert.NilError(t, err)
+	cfg, err := config.LoadProjectConfig(dir)
+	assert.NilError(t, err)
+	assert.Assert(t, cfg.VCS == nil || cfg.VCS.DefaultBranch == "")
+}
+
+func TestInitForceKeepsTheDefaultBranch(t *testing.T) {
+	isolateConfig(t)
+	t.Setenv("CI", "1")
+	dir := initGitRepo(t)
+	gitRemoteAdd := exec.Command("git", "remote", "add", "origin", "https://github.com/acme/widgets.git")
+	gitRemoteAdd.Dir = dir
+	out, err := gitRemoteAdd.CombinedOutput()
+	assert.NilError(t, err, string(out))
+	assert.NilError(t, config.SaveProjectConfig(dir, &config.ProjectConfig{VCS: &config.VCSConfig{DefaultBranch: "develop"}}))
+
+	stderr, err := runInitCmd(t, dir, "--force")
+	assert.NilError(t, err, stderr)
+	assert.Assert(t, strings.Contains(stderr, "default branch: develop (from vcs.default_branch in .smelt/config.json)"), stderr)
+	cfg, err := config.LoadProjectConfig(dir)
+	assert.NilError(t, err)
+	assert.Assert(t, cfg.VCS != nil)
+	assert.Equal(t, cfg.VCS.DefaultBranch, "develop")
+	assert.Equal(t, cfg.VCS.Org, "acme")
+}

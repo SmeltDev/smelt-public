@@ -13,6 +13,7 @@ import (
 	"github.com/smeltdev/smelt/internal/circleci"
 	"github.com/smeltdev/smelt/internal/config"
 	"github.com/smeltdev/smelt/internal/gitexec"
+	"github.com/smeltdev/smelt/internal/gitremote"
 	"github.com/smeltdev/smelt/internal/harness"
 	"github.com/smeltdev/smelt/internal/iostream"
 	"github.com/smeltdev/smelt/internal/quality"
@@ -827,7 +828,7 @@ func startWorktree(ctx context.Context, opts RunOptions, runID, dataDir string, 
 	wt, err := CreateWorktree(ctx, WorktreeOptions{
 		Root: opts.Root, Path: filepath.Join(dataDir, "factory", runID),
 		RunID: runID, Prompt: opts.Prompt, Author: author, From: opts.From, CleanBase: opts.CleanBase, Against: opts.againstRef(),
-		Host: ghHostFor(opts.Root, dataDir),
+		Host: ghHostFor(opts.Root, dataDir), DataDir: dataDir,
 	})
 	if err != nil {
 		return Worktree{}, fmt.Errorf("create the run's worktree: %w", err)
@@ -836,11 +837,16 @@ func startWorktree(ctx context.Context, opts RunOptions, runID, dataDir string, 
 	return wt, nil
 }
 
-// ghHostFor is the host that names the default branch, nil without gh. Its
-// answers are cached under the data dir.
+// ghHostFor is the host that names the default branch, nil without gh or when
+// origin is not on GitHub. Its answers are cached under the data dir.
 func ghHostFor(root, dataDir string) DefaultBranchHost {
 	h := NewGHHost(root)
 	if h == nil {
+		return nil
+	}
+	if url, err := gitremote.URL(context.Background(), root, DefaultRemote); err != nil {
+		return nil
+	} else if _, _, err := gitremote.ParseRemoteURL(url); err != nil {
 		return nil
 	}
 	h.CacheDir = filepath.Join(dataDir, "cache", "default-branch")
@@ -996,4 +1002,10 @@ func reportDroppedSyncs(syncs []Sync, round int, emit func(Event)) {
 			emit(Event{Kind: EventSyncDropped, Round: round, Sync: &sync})
 		}
 	}
+}
+
+// DefaultBranchHostFor is the host that names root's default branch, for
+// callers outside a run. It is nil without gh or when origin is not on GitHub.
+func DefaultBranchHostFor(root, dataDir string) DefaultBranchHost {
+	return ghHostFor(root, dataDir)
 }

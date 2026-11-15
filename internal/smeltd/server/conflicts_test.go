@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smeltdev/smelt/internal/config"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 )
@@ -54,7 +55,7 @@ func initRepo(t *testing.T) string {
 }
 
 // cloneWithRemoteHead makes a clone of upstream with origin/HEAD recorded, which
-// is what DefaultRemoteBranchIn reads to find the merge target.
+// is what the origin-head step of gitutil.DefaultBranch reads to find the merge target.
 func cloneWithRemoteHead(t *testing.T, upstream string) string {
 	t.Helper()
 	clone := t.TempDir()
@@ -212,7 +213,7 @@ func TestEvaluateConflictWithoutRemoteHeadIsUnavailable(t *testing.T) {
 	state, _ := evaluateConflict(context.Background(), dir, nil, time.Time{})
 	assert.Assert(t, state != nil)
 	assert.Check(t, !state.Conflicted)
-	assert.Check(t, cmp.Contains(state.Unavailable, "no default branch"))
+	assert.Check(t, cmp.Contains(state.Unavailable, "default branch is unknown"))
 }
 
 func TestEvaluateConflictDetachedHeadIsUnavailable(t *testing.T) {
@@ -326,4 +327,27 @@ func TestEvaluateConflictAnswersNormallyWithLiveQueries(t *testing.T) {
 	assert.Check(t, cmp.Equal(state.Unavailable, ""))
 	assert.Check(t, state.HeadSHA != "")
 	assert.Check(t, state.TargetSHA != "")
+}
+
+func TestEvaluateConflictFindsTheTargetFromTheRemoteWhenNoOriginHeadIsRecorded(t *testing.T) {
+	t.Setenv(config.EnvXDGDataHome, t.TempDir())
+	upstream := initRepo(t)
+	git(t, upstream, "branch", "-m", "master")
+	writeCommit(t, upstream, "shared.txt", "original\n", "shared")
+
+	// cloneWithRemoteHead without the symbolic-ref line.
+	clone := t.TempDir()
+	git(t, clone, "init", "-b", "master")
+	git(t, clone, "remote", "add", "origin", upstream)
+	git(t, clone, "fetch", "origin")
+	git(t, clone, "reset", "--hard", "origin/master")
+	git(t, clone, "checkout", "-b", "feature")
+	writeCommit(t, clone, "shared.txt", "feature edit\n", "feature")
+	writeCommit(t, upstream, "shared.txt", "upstream edit\n", "upstream")
+
+	state, _ := evaluateConflict(context.Background(), clone, nil, time.Time{})
+	assert.Assert(t, state != nil)
+	assert.Check(t, cmp.Equal(state.Unavailable, ""))
+	assert.Check(t, cmp.Equal(state.Target, "origin/master"))
+	assert.Check(t, state.Conflicted)
 }

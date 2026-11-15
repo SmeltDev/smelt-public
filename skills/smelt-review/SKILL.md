@@ -17,14 +17,18 @@ Use the team's generated review prompt to review recent code changes. Runs the a
      - If no PR number/URL was given but you are on a branch with an open PR, run `gh pr view --json number,title,body,baseRefName,headRefName,headRepositoryOwner,headRepository` to auto-detect it, then fetch the diff the same way
    - If the user specified a commit range, branch, or file list — use that
    - If there are staged changes (`git diff --cached`) — review those
-   - Otherwise, review the branch against its base. Resolve the base first (the default branch is not always `main`: it is `origin/HEAD` when set, else `main`, else `master`), then run `git diff <base>...HEAD`:
+   - Otherwise, review the branch against its base. Resolve the base first with `smelt repo default-branch` (the default branch is not always `main`; smelt names it from the config, the code host or the remote, and never guesses; the shell loop below runs only when `smelt` is not on PATH), then run `git diff <base>...HEAD`:
 
      ```sh base-branch
-     base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
-     if [ -z "$base" ]; then
-       for b in main master; do
-         if git rev-parse --verify --quiet "refs/heads/$b" >/dev/null || git rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null; then base=$b; break; fi
-       done
+     if command -v smelt >/dev/null 2>&1; then
+       base=$(smelt repo default-branch 2>/dev/null)
+     else
+       base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+       if [ -z "$base" ]; then
+         for b in main master; do
+           if git rev-parse --verify --quiet "refs/heads/$b" >/dev/null || git rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null; then base=$b; break; fi
+         done
+       fi
      fi
      echo "$base"
      ```

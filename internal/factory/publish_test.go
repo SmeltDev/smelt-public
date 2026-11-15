@@ -325,3 +325,23 @@ func TestStrayBranchNote(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) { assert.Equal(t, StrayBranchNote(tt.wt), tt.want) })
 	}
 }
+
+// A clone with no origin/HEAD and no gh still learns the default branch from
+// the remote itself.
+func TestRunOnAProjectWithNoOriginHeadTargetsTheRemotesDefaultBranch(t *testing.T) {
+	root := newProject(t)
+	origin := filepath.Join(t.TempDir(), "origin.git")
+	gitOutput(t, root, "init", "--bare", "-b", "master", origin)
+	gitOutput(t, root, "remote", "set-url", "origin", origin)
+	gitOutput(t, root, "checkout", "-B", "master")
+	gitOutput(t, root, "push", "origin", "HEAD:refs/heads/master")
+	gitOutput(t, root, "checkout", "-b", "feature/x")
+
+	wt, err := CreateWorktree(context.Background(), WorktreeOptions{
+		Root: root, Path: filepath.Join(t.TempDir(), "wt"), RunID: "run-1", Prompt: "add a flag",
+		CleanBase: true, DataDir: t.TempDir(),
+	})
+	assert.NilError(t, err)
+	assert.Equal(t, wt.DefaultBranch, "master")
+	assert.Equal(t, wt.PRBase, "master")
+}
