@@ -1,0 +1,7 @@
+config: default branch: develop (from vcs.default_branch in .smelt/config.json)
+host: default branch: hostb (from the code host)
+origin-head: default branch: headb (from origin/HEAD)
+upstream-head: default branch: devel (from upstream/HEAD)
+remote: default branch: trunk (from the remote)
+only-branch: default branch: main (from the only origin branch)
+unknown: the repository's default branch is unknown; set "vcs": {"default_branch": "<name>"} in .smelt/config.json

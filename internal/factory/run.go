@@ -1003,3 +1003,9 @@ func reportDroppedSyncs(syncs []Sync, round int, emit func(Event)) {
 		}
 	}
 }
+
+// DefaultBranchHostFor is the host that names root's default branch, for
+// callers outside a run. It is nil without gh or when origin is not on GitHub.
+func DefaultBranchHostFor(root, dataDir string) DefaultBranchHost {
+	return ghHostFor(root, dataDir)
+}

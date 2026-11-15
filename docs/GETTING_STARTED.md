@@ -103,6 +103,8 @@ What it creates:
 
 Init first runs each gate command once. If one fails today it prints the command and the end of its output, installs no hooks (a hook would block every commit), and tells you to fix it and run `smelt init --hooks-only`. A Python repo with no tests gets no test gate, and init says so.
 
+Init also prints the repository's default branch and where it found it, e.g. `default branch: master (from the remote)`. If it cannot tell, it says how to set `vcs.default_branch` in `.smelt/config.json` and carries on; `smelt factory doctor` shows the same line.
+
 `smelt init` prints a one-line explanation after each of these hidden files so it's clear what got added and why.
 
 Review the generated config and adjust commands if needed:
