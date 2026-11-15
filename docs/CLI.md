@@ -1347,6 +1347,7 @@ A prompts directory named `patterns` must be passed to `smelt review` as `./patt
 | `model` | user config (`~/.config/smelt/config.json`) | Claude model override |
 | `telemetry` | user config (`~/.config/smelt/config.json`) | Usage telemetry preference (`true`/`false`, default: `true`); only matters to a build that has a telemetry write key, which default builds do not |
 | `notifications` | user config (`~/.config/smelt/config.json`) | OS desktop notification after validate completes (`true`/`false`, default: `false`) |
+| `vcs.default_branch` | `.smelt/config.json` | The branch PRs merge into. Needed only when no code host, `origin/HEAD` or remote answers; otherwise smelt finds it. `smelt init` and `smelt factory doctor` print the branch and where it came from, or how to set it (see ARCHITECTURE.md, default-branch resolution) |
 | `orgID` | `.smelt/config.json` | CircleCI organization ID for sidecar subcommands |
 | `validation.sidecarImage` | `.smelt/config.json` | Snapshot or image ID for sidecar bootstrap and validate (unset: a matching org snapshot is selected automatically) |
 | `asyncValidate` | `.smelt/config.json` | Whether hook runs may be validated in the background: `auto` (default), `always`, `never` |

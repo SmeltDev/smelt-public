@@ -664,3 +664,17 @@ func TestKeepUnknownKeysFrom(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, strings.Contains(string(data), `"pilot": {"a": 1}`), string(data))
 }
+
+func TestSaveProjectConfigKeepsVCSDefaultBranch(t *testing.T) {
+	dir := t.TempDir()
+	writeProjectConfig(t, dir, `{"vcs": {"org": "acme", "repo": "widgets", "default_branch": "develop"}}`)
+	cfg, err := LoadProjectConfig(dir)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.VCS.DefaultBranch, "develop")
+	cfg.OrgID = "new"
+	assert.NilError(t, SaveProjectConfig(dir, cfg))
+	reloaded, err := LoadProjectConfig(dir)
+	assert.NilError(t, err)
+	assert.Equal(t, reloaded.VCS.DefaultBranch, "develop")
+	assert.Equal(t, reloaded.VCS.Org, "acme")
+}

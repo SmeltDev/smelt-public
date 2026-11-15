@@ -613,9 +613,27 @@ func detectVCS(ctx context.Context, workDir string, streams iostream.Streams, cf
 		streams.ErrPrintf("%s\n", ui.Warning(fmt.Sprintf("Could not detect VCS info: %v", err)))
 		return nil
 	}
-	cfg.VCS = &config.VCSConfig{Org: org, Repo: repo}
+	var defaultBranch string
+	if cfg.VCS != nil {
+		defaultBranch = cfg.VCS.DefaultBranch
+	}
+	cfg.VCS = &config.VCSConfig{Org: org, Repo: repo, DefaultBranch: defaultBranch}
 	streams.ErrPrintf("Detected repository: %s\n", ui.Bold(fmt.Sprintf("%s/%s", org, repo)))
 	return nil
+}
+
+// printInitDefaultBranch shows the default branch smelt found, or how to set it.
+// It never writes the key and never stops init.
+func printInitDefaultBranch(ctx context.Context, workDir string, streams iostream.Streams, cfg *config.ProjectConfig) {
+	var configured string
+	if cfg.VCS != nil {
+		configured = cfg.VCS.DefaultBranch
+	}
+	line, ok := projectDefaultBranchLine(ctx, workDir, configured)
+	if !ok {
+		line = ui.Warning(line)
+	}
+	streams.ErrPrintf("%s\n", line)
 }
 
 // resolveGitCommonDir is the repository's shared git directory as an absolute
@@ -770,6 +788,7 @@ hook config files.`,
 			if err := detectVCS(ctx, workDir, streams, cfg); err != nil {
 				return err
 			}
+			printInitDefaultBranch(ctx, workDir, streams, cfg)
 
 			// Step 2: the coding agent's credential. Before anything that may
 			// ask Claude: command detection reads it, and so does the repair

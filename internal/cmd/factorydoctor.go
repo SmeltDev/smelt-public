@@ -23,6 +23,12 @@ func newFactoryDoctorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Before Docker, so the line shows without it. Unknown only warns.
+			line, ok := projectDefaultBranchLine(cmd.Context(), root, "")
+			if !ok {
+				line = "warning: " + line
+			}
+			iostream.FromCmd(cmd).Println(line)
 			provider, err := docker.New()
 			if err != nil {
 				return dockerUnreachable(err)
