@@ -162,10 +162,54 @@ func writeHookOutcome(w io.Writer, hook *hookContext, message string) error {
 	return writeStopHookMessage(w, message)
 }
 
+// hookPayloadWait is how long a piped stdin gets to send its first byte
+// before the run is taken as not being a hook. A hook writes its payload at
+// once; a script holding an open pipe open without writing never does.
+var hookPayloadWait = 200 * time.Millisecond
+
+// fdIsTerminal reports whether fd is a terminal. A variable so tests can
+// stand in for one.
+var fdIsTerminal = term.IsTerminal
+
+// awaitFirstByte waits up to hookPayloadWait for r, when it is a file, to
+// produce a byte. It returns a reader that yields r's whole stream, or false
+// when nothing arrived in time. Readers other than files are returned as is.
+func awaitFirstByte(r io.Reader) (io.Reader, bool) {
+	f, ok := r.(*os.File)
+	if !ok {
+		return r, true
+	}
+	type result struct {
+		b   [1]byte
+		n   int
+		err error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		var res result
+		res.n, res.err = f.Read(res.b[:])
+		ch <- res
+	}()
+	select {
+	case res := <-ch:
+		if res.n == 0 {
+			return strings.NewReader(""), true
+		}
+		return io.MultiReader(bytes.NewReader(res.b[:res.n]), f), true
+	case <-time.After(hookPayloadWait):
+		return nil, false
+	}
+}
+
 // detectHook reads the Claude Code hook JSON payload from r when r is not a
-// terminal. Returns nil if not running as a hook.
+// terminal. Returns nil if not running as a hook, including when r sends
+// nothing within hookPayloadWait.
 func detectHook(r io.Reader) *hookContext {
-	if f, ok := r.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+	if f, ok := r.(*os.File); ok && fdIsTerminal(int(f.Fd())) {
+		return nil
+	}
+	r, ok := awaitFirstByte(r)
+	if !ok {
 		return nil
 	}
 	var p struct {
@@ -195,7 +239,12 @@ func detectHook(r io.Reader) *hookContext {
 // same payload again in RunE.
 func peekHookPayload(cmd *cobra.Command) *hookContext {
 	in := cmd.InOrStdin()
-	if f, ok := in.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+	if f, ok := in.(*os.File); ok && fdIsTerminal(int(f.Fd())) {
+		return nil
+	}
+	in, ok := awaitFirstByte(in)
+	if !ok {
+		cmd.SetIn(strings.NewReader("")) // RunE must not wait again
 		return nil
 	}
 	var buf bytes.Buffer
