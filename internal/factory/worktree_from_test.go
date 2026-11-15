@@ -175,7 +175,7 @@ func TestStartWorktreeFromARefAnnouncesAndIgnoresTheCheckout(t *testing.T) {
 func TestStartWorktreeSaysWhenTheCheckoutIsNotOnTheDefaultBranch(t *testing.T) {
 	root := originProject(t)
 	gitOutput(t, root, "checkout", "-B", "main")
-	// DefaultBranchIn reads this symref.
+	// gitutil.DefaultBranch reads this symref.
 	gitOutput(t, root, "remote", "set-head", "origin", "main")
 	var got []string
 	opts := RunOptions{Root: root, Prompt: "x", CleanBase: true, Status: func(_ iostream.Level, msg string) { got = append(got, msg) }}

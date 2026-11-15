@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/smeltdev/smelt/internal/config"
 	"github.com/smeltdev/smelt/internal/gitexec"
 	"github.com/smeltdev/smelt/internal/gitutil"
 )
@@ -113,7 +114,7 @@ func recheckPreamble(spec string, prior priorRound) string {
 
 // ErrNoDefaultBranch is returned when --against is not given and the
 // repository records no default branch.
-var ErrNoDefaultBranch = errors.New("the repository records no default branch")
+var ErrNoDefaultBranch = gitutil.ErrNoDefaultBranch
 
 // ResolveAgainst is the ref an integrate run compares its branch with: against
 // as given, else the repository's default branch.
@@ -121,9 +122,10 @@ func ResolveAgainst(root, against string) (string, error) {
 	if against != "" {
 		return against, nil
 	}
-	branch, err := gitutil.DefaultBranchIn(root)
-	if err != nil || branch == "" {
-		return "", fmt.Errorf("%w; name what to compare with: --against <ref>", ErrNoDefaultBranch)
+	dataDir, _ := config.ProjectDataDir(root)
+	branch, err := gitutil.DefaultBranch(context.Background(), root, gitutil.Opts{Host: ghHostFor(root, dataDir), DataDir: dataDir})
+	if err != nil {
+		return "", fmt.Errorf("%w; or name what to compare with: --against <ref>", err)
 	}
-	return branch, nil
+	return branch.Name, nil
 }

@@ -421,10 +421,10 @@ smelt
   target.
 - **What `conflicts` compares.** The daemon previews merging each project's
   branch into the default branch on `origin`, falling back to `upstream`
-  (`DefaultRemoteBranchIn`), re-checking every 60s and refreshing the target's
+  (`gitutil.DefaultBranch`: see `vcs.default_branch` in ARCHITECTURE.md), re-checking every 60s and refreshing the target's
   remote-tracking ref every 3 minutes. The comparison covers **committed
   history only** — uncommitted work in the tree is invisible to it. A detached
-  HEAD, a repo with no recorded default branch, and a branch that is itself the
+  HEAD, a repo whose default branch cannot be determined, and a branch that is itself the
   merge target all produce "no answer" rather than a clean bill of health.
 - **`watch` can show a remote daemon.** With `SMELT_DAEMON_REMOTE_ADDR` and
   `SMELT_DAEMON_TCP_TOKEN` set, `watch` reads the daemon at that TCP address instead

@@ -121,34 +121,6 @@ func TestCurrentBranchInCtxHonoursCanceledContext(t *testing.T) {
 	assert.Assert(t, errors.Is(err, context.Canceled), "got %v", err)
 }
 
-func TestDefaultBranchIn(t *testing.T) {
-	t.Run("prefers origin", func(t *testing.T) {
-		dir := setupRepo(t)
-		setRemoteHead(t, dir, "upstream", "trunk")
-		setRemoteHead(t, dir, "origin", "main")
-
-		branch, err := DefaultBranchIn(dir)
-		assert.NilError(t, err)
-		assert.Equal(t, branch, "main")
-	})
-
-	t.Run("falls back to upstream", func(t *testing.T) {
-		dir := setupRepo(t)
-		setRemoteHead(t, dir, "upstream", "trunk")
-
-		branch, err := DefaultBranchIn(dir)
-		assert.NilError(t, err)
-		assert.Equal(t, branch, "trunk")
-	})
-
-	t.Run("reports missing remote HEAD", func(t *testing.T) {
-		dir := setupRepo(t)
-
-		_, err := DefaultBranchIn(dir)
-		assert.ErrorContains(t, err, "no remote HEAD")
-	})
-}
-
 func TestHeadRef(t *testing.T) {
 	dir := setupRepo(t)
 	want := gitRun(t, dir, "rev-parse", "HEAD")

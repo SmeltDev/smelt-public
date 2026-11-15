@@ -121,7 +121,7 @@ func parseConflictPaths(out string) []string {
 	return paths
 }
 
-// DefaultRemoteBranchIn returns the remote and branch name of the default
+// originHead returns the remote and branch name of the default
 // branch for the repo rooted at dir — the branch a PR merges into, and the
 // remote it lives on.
 //
@@ -130,11 +130,11 @@ func parseConflictPaths(out string) []string {
 // and fetching the wrong one leaves the comparison stale in exactly the
 // checkout where being stale is most misleading.
 //
-// Like DefaultBranchIn, an error is a routine answer: a repo with no remote HEAD
-// recorded has no default branch to find, and callers fall back rather than fail.
-func DefaultRemoteBranchIn(dir string) (remote, branch string, err error) {
+// An error is a routine answer: a repo with no remote HEAD recorded has none to
+// read, and DefaultBranch moves on to its next step.
+func originHead(dir string) (remote, branch string, err error) {
 	runner := gitexec.Runner{Dir: dir}
-	for _, r := range []string{"origin", "upstream"} {
+	for _, r := range remotes {
 		out, cmdErr := runner.Output(context.Background(), "symbolic-ref", "--short", "refs/remotes/"+r+"/HEAD")
 		if cmdErr != nil {
 			continue

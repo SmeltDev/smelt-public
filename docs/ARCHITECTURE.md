@@ -857,6 +857,17 @@ Three properties the layering exists to hold:
   absent daemon from being reported as a clean merge. Collapsing them would have
   the hook tell an agent a branch is clean when nothing ever looked.
 
+## Default branch resolution (`internal/gitutil/defaultbranch.go`)
+
+`gitutil.DefaultBranch` is the one resolver for the branch a PR merges into. It
+returns the first answer of: `vcs.default_branch` in `.smelt/config.json`; the
+code host (`gh repo view`, only with `gh` and a GitHub origin); `origin/HEAD`,
+then `upstream/HEAD`; `git ls-remote --symref` on origin, then upstream (10s
+timeout, cached 24h under the project's data folder); and the only one of
+`origin/main` and `origin/master` that exists. Otherwise it returns
+`ErrNoDefaultBranch`, which names the config key. It never guesses `main` and
+never writes to `.git`.
+
 ## Change Measurement (`internal/changeset/`, `internal/gitutil/`, `internal/filestate/`)
 
 `changeset.Changes` is the shape of one answer — how far a working tree has
