@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/smeltdev/smelt/internal/brand"
 	"github.com/smeltdev/smelt/internal/config"
@@ -79,11 +78,10 @@ type WorktreeOptions struct {
 	// Host, when set, names the repository's default branch; the git remote's
 	// HEAD answers when it is nil or fails.
 	Host DefaultBranchHost
+	// DataDir is the project's data folder, where the default branch learned
+	// from the remote is cached. Empty turns that cache off.
+	DataDir string
 }
-
-// defaultBranchTimeout bounds the host's answer to the default branch, so a
-// slow network never holds up the start of a run.
-const defaultBranchTimeout = 10 * time.Second
 
 // DefaultBranchHost names a repository's default branch, as the code host
 // records it.
@@ -91,19 +89,13 @@ type DefaultBranchHost interface {
 	DefaultBranch(ctx context.Context) (string, error)
 }
 
-// defaultBranch is the repository's default branch, "" when none is recorded:
-// the host's answer, else the remote HEAD git recorded.
+// defaultBranch is the repository's default branch, "" when none is known; see
+// gitutil.DefaultBranch.
 func (o WorktreeOptions) defaultBranch(ctx context.Context) string {
-	if o.Host != nil {
-		hctx, cancel := context.WithTimeout(ctx, defaultBranchTimeout)
-		defer cancel()
-		if b, err := o.Host.DefaultBranch(hctx); err == nil && b != "" {
-			return b
-		}
-	}
-	// A repository may record no default branch.
-	b, _ := gitutil.DefaultBranchIn(o.Root)
-	return b
+	// A run goes ahead without it: only integrate and the conflict check
+	// report an unknown default branch.
+	b, _ := gitutil.DefaultBranch(ctx, o.Root, gitutil.Opts{Host: o.Host, DataDir: o.DataDir})
+	return b.Name
 }
 
 // prBase is the branch the run's PR targets; see Worktree.PRBase.
